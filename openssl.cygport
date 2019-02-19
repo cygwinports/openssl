@@ -1,5 +1,5 @@
 NAME="openssl"
-VERSION=1.0.2n
+VERSION=1.1.1a
 RELEASE=1
 CATEGORY="Net"
 SUMMARY="A general purpose cryptography toolkit with TLS implementation"
@@ -7,61 +7,125 @@ DESCRIPTION="The OpenSSL toolkit provides support for secure communications betw
 machines. OpenSSL includes a certificate management tool and shared
 libraries which provide various cryptographic algorithms and protocols."
 HOMEPAGE="http://www.openssl.org/"
-SRC_URI="https://www.openssl.org/source/openssl-${VERSION}.tar.gz"
+#SRC_URI="https://www.openssl.org/source/openssl-${VERSION}.tar.gz"
+sha512sum=17d2703b2169f36b2ecd50d014103f31e22bbd42807b4688a3cd6140911e0aa9a2fa2bb1d4dda4eae000913a1551d85ac9c441a69c053a8ad10b593ec2a588b5
+SRC_URI="https://src.fedoraproject.org/repo/pkgs/openssl/openssl-1.1.1a-hobbled.tar.xz/sha512/${sha512sum}/openssl-${VERSION}-hobbled.tar.xz"
+SRC_URI+="
+	fedora/Makefile.certificate
+	fedora/make-dummy-cert
+	fedora/renew-dummy-cert
+	fedora/ec_curve.c
+	fedora/ectest.c
+"
 PATCH_URI="
-	http://pkgs.fedoraproject.org/cgit/openssl.git/plain/openssl-1.0.2i-enginesdir.patch
-	1.0.2-debuginfo.patch
+	fedora/openssl-1.1.1-build.patch
+	fedora/openssl-1.1.1-defaults.patch
+	fedora/openssl-1.1.0-no-html.patch
+	fedora/openssl-1.1.1-man-rename.patch
+	fedora/openssl-1.1.0-issuer-hash.patch
+	fedora/openssl-1.1.1-conf-paths.patch
+	fedora/openssl-1.1.1-version-add-engines.patch
+	fedora/openssl-1.1.0-apps-dgst.patch
+	fedora/openssl-1.1.1-no-brainpool.patch
+	fedora/openssl-1.1.1-ec-curves.patch
+	fedora/openssl-1.1.1-disable-ssl3.patch
+	fedora/openssl-1.1.1-system-cipherlist.patch
+	fedora/openssl-1.1.1-ignore-bound.patch
+	fedora/openssl-1.1.1-weak-ciphers.patch
+	fedora/openssl-1.1.1-seclevel.patch
 "
 
-PKG_NAMES="openssl openssl-devel openssl-perl libopenssl100"
+PKG_NAMES="openssl openssl-perl libssl1.1 libssl-devel"
 openssl_CATEGORY="Base Net"
-openssl_CONTENTS="--exclude=CA.pl* --exclude=tsget usr/bin/openssl.exe
-		  usr/share/doc usr/share/man/man[157] usr/ssl/"
-openssl_devel_SUMMARY="${SUMMARY} (development)"
-openssl_devel_CONTENTS="usr/include usr/lib/*.a usr/lib/pkgconfig usr/share/man/man3/"
+openssl_CONTENTS="
+	--exclude=CA.pl* --exclude=c_rehash* --exclude=tsget* --exclude=html
+	etc/pki/tls/
+	usr/bin/openssl.exe
+	usr/bin/make-dummy-cert
+	usr/bin/renew-dummy-cert
+	usr/share/doc/${NAME}
+	usr/share/man/man[157]
+"
+libssl_devel_SUMMARY="${SUMMARY} (development)"
+libssl_devel_OBSOLETES="openssl-devel"
+libssl_devel_CONTENTS="
+	usr/include/openssl/
+	usr/lib/libcrypto.dll.a
+	usr/lib/libssl.dll.a
+	usr/lib/pkgconfig/*
+	usr/share/man/man3/
+"
 openssl_perl_SUMMARY="Perl scripts provided with OpenSSL"
 openssl_perl_REQUIRES="openssl"
-openssl_perl_CONTENTS="usr/bin/c_rehash usr/ssl/misc/CA.pl usr/ssl/misc/tsget
-	usr/share/man/man1/CA.pl.1.gz"
-libopenssl100_CATEGORY="Base Libs"
-libopenssl100_SUMMARY="${SUMMARY} (runtime)"
-libopenssl100_REQUIRES="ca-certificates"
-libopenssl100_CONTENTS="usr/bin/cyg*-1.0.0.dll usr/lib/${P%[a-z]}/engines/"
+openssl_perl_CONTENTS="
+	etc/pki/CA/
+	usr/bin/CA.pl
+	usr/bin/c_rehash
+	usr/bin/tsget
+	usr/share/man/man1/CA.pl.1*
+	usr/share/man/man1/c_rehash.1*
+	usr/share/man/man1/tsget.1*
+"
+libssl1_1_CATEGORY="Base Libs"
+libssl1_1_SUMMARY="${SUMMARY} (runtime)"
+libssl1_1_REQUIRES="ca-certificates crypto-policies"
+libssl1_1_CONTENTS="
+	etc/defaults/etc/pki/tls/*.cnf
+	etc/postinstall/${NAME}.sh
+	etc/preremove/${NAME}.sh
+	usr/bin/cygcrypto-1.1.dll
+	usr/bin/cygssl-1.1.dll
+	usr/lib/engines-1.1/
+"
 
 DIFF_EXCLUDES="Makefile.save"
 
 MAKEOPTS+=" -j1"
+
+CYGPORT_USE_UNSTABLE_API=1
+src_unpack_hook() {
+	mv ec_curve.c crypto/ec/
+	mv ectest.c test/
+}
 
 src_compile() {
 	cd ${S}
 	lndirs
 	cd ${B}
 	unset CC
-	# MASS REBUILD (ABI break): remove no-krb5 and add:
-	#	--with-krb5-dir=/usr --with-krb5-flavor=MIT \
-	./Configure --prefix=/usr --enginesdir=/usr/lib/${P%[a-z]}/engines \
+	# Fedora has enable-sctp but that requires IPPROTO_SCTP
+	./Configure --prefix=/usr --openssldir=/etc/pki/tls \
 		$(cross_compiling && echo -n --cross-compile-prefix=${ARCH}-pc-cygwin-) \
-		shared zlib enable-seed enable-tlsext enable-rfc3779 \
-		enable-camellia enable-cms enable-md2 enable-rc5 no-krb5 \
-		Cygwin${ARCH_x86_64+-x86_64}
-	cygmake depend
-	cygmake OPT_CFLAGS="${CFLAGS}"
+		--system-ciphers-file=/etc/crypto-policies/back-ends/openssl.config \
+		zlib enable-camellia enable-seed enable-rfc3779 \
+		enable-cms enable-md2 enable-rc5 enable-ssl3 enable-ssl3-method \
+		enable-weak-ssl-ciphers \
+		no-mdc2 no-ec2m no-sm2 no-sm4 \
+		${ARCH_x86_64+enable-ec_nistp_64_gcc_128} \
+		shared Cygwin${ARCH_x86_64+-x86_64}
+	cygmake
 }
 
 src_install() {
 	cd ${B}
-	cygmake install INSTALL_PREFIX=${D}
+	cyginstall
+	# install_runtime_libs mistakenly uses 0644
+	chmod 0755 ${D}/usr/bin/*.dll
+	# remove static libraries
+	rm ${D}/usr/lib/lib{crypto,ssl}.a
 
-	dodir /usr/lib/${P%[a-z]}
-	mv ${D}/usr/lib/engines ${D}/usr/lib/${P%[a-z]}/
+	rm ${D}/etc/pki/tls/*.cnf.dist
+	make_etc_defaults /etc/pki/tls/{ct_log_list,openssl}.cnf
 
-	dodir /usr/share
-	# move these so that we do not have to mess with MANPATH
-	mv ${D}/usr/ssl/man ${D}/usr/share/
+	mv ${D}/etc/pki/tls/misc/{CA.pl,tsget} ${D}/usr/bin/
+	rm ${D}/etc/pki/tls/misc/tsget.pl
 
-	dodir /usr/ssl/certs
-	cp -rp ${S}/certs/* ${D}/usr/ssl/certs/
+	keepdir /etc/pki/tls/{certs,misc,private}
+	keepdir /etc/pki/CA/{private,certs,crl,newcerts}
+
+	# Additional tools from Fedora
+	dobin ${S}/{make,renew}-dummy-cert
+	dodoc Makefile.certificate
 }
 
 DOCS="CHANGES.SSLeay INSTALL"
-KEEPDIRS="/usr/ssl/private"
