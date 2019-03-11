@@ -1,5 +1,5 @@
 NAME="openssl"
-VERSION=1.1.1a
+VERSION=1.1.1b
 RELEASE=1
 CATEGORY="Net"
 SUMMARY="A general purpose cryptography toolkit with TLS implementation"
@@ -8,8 +8,8 @@ machines. OpenSSL includes a certificate management tool and shared
 libraries which provide various cryptographic algorithms and protocols."
 HOMEPAGE="http://www.openssl.org/"
 #SRC_URI="https://www.openssl.org/source/openssl-${VERSION}.tar.gz"
-sha512sum=17d2703b2169f36b2ecd50d014103f31e22bbd42807b4688a3cd6140911e0aa9a2fa2bb1d4dda4eae000913a1551d85ac9c441a69c053a8ad10b593ec2a588b5
-SRC_URI="https://src.fedoraproject.org/repo/pkgs/openssl/openssl-1.1.1a-hobbled.tar.xz/sha512/${sha512sum}/openssl-${VERSION}-hobbled.tar.xz"
+sha512sum=8055b19bfeec41fe0607c04d468d2f16a1e5fe02642c8deb67b00878be7e28ab266d13da41b9576800cba0b9448253f26f72ab8889d666f5d23103648f80bea1
+SRC_URI="https://src.fedoraproject.org/repo/pkgs/openssl/openssl-${VERSION}-hobbled.tar.xz/sha512/${sha512sum}/openssl-${VERSION}-hobbled.tar.xz"
 SRC_URI+="
 	fedora/Makefile.certificate
 	fedora/make-dummy-cert
@@ -28,6 +28,7 @@ PATCH_URI="
 	fedora/openssl-1.1.0-apps-dgst.patch
 	fedora/openssl-1.1.1-no-brainpool.patch
 	fedora/openssl-1.1.1-ec-curves.patch
+	fedora/openssl-1.1.1-no-weak-verify.patch
 	fedora/openssl-1.1.1-disable-ssl3.patch
 	fedora/openssl-1.1.1-system-cipherlist.patch
 	fedora/openssl-1.1.1-ignore-bound.patch
